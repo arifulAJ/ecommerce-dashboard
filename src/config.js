@@ -1,0 +1,6 @@
+// export const baseUrl = 'http://192.168.10.168:3030/api/v1'
+// export const imageBaseUrl = 'http://192.168.10.168:3030'
+export const baseUrl = 'https://ecommace-app.onrender.com/api/v1'
+export const imageBaseUrl = 'https://ecommace-app.onrender.com'
+// export const baseUrl = 'http://dapperdriver.com:3030/api/v1'
+// export const imageBaseUrl = 'http://dapperdriver.com:3030'
