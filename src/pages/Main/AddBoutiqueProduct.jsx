@@ -1,19 +1,19 @@
+
 import { Button, Form, Input, Select, Modal, message } from "antd";
 import { useState } from "react";
 import { FaCamera } from "react-icons/fa6";
 import { FiPlus, FiX } from "react-icons/fi";
-import { HexColorPicker } from "react-colorful"; // Color Picker from react-colorful
+import { SketchPicker } from "react-color"; // Color Picker
 import { Option } from "antd/es/mentions";
 import { useAddBoutiqueProductMutation } from "../../redux/features/boutiques/boutiquesApi";
 import { useNavigate, useParams } from "react-router-dom";
 import { useGetCategoriesQuery } from "../../redux/features/category/categoryApi";
 
 const AddBoutiqueProduct = () => {
-  const [selectedFiles, setSelectedFiles] = useState([]); // To store the selected files (images)
-  const [previews, setPreviews] = useState([]); // For image previews
+  const [selectedFile, setSelectedFile] = useState(null); // To store the selected file (image)
+  const [preview, setPreview] = useState(null); // For image preview
   const [imageError, setImageError] = useState(false); // Handle file upload errors
-  const [color, setColor] = useState("#ffffff"); // Single color value
-  const [selectedColors, setSelectedColors] = useState([]); // Array to store multiple colors
+  const [color, setColor] = useState([]); // Array to store colors
   const [selectedSizes, setSelectedSizes] = useState([]); // Array for selected sizes (variants)
   const [colorPickerVisible, setColorPickerVisible] = useState(false); // Toggle for color picker modal
   const [sizeModalVisible, setSizeModalVisible] = useState(false); // Toggle for size modal
@@ -22,7 +22,7 @@ const AddBoutiqueProduct = () => {
     inventoryQuantity: "",
     price: "",
   }); // Temp state to handle size input
-  const [addProduct, { isLoading }] = useAddBoutiqueProductMutation(); // Redux mutation to add product
+  const [addProduct] = useAddBoutiqueProductMutation(); // Redux mutation to add product
   const { data: responseData } = useGetCategoriesQuery(1);
   const navigate = useNavigate();
   const { boutiqueId } = useParams(); // Get boutique ID from URL params
@@ -30,22 +30,17 @@ const AddBoutiqueProduct = () => {
   const categoriesData = responseData?.data?.attributes?.allCatagory || [];
 
   // Handle form submission
-  const handleUploadProduct = async (values) => {
+  const handleUploadScore = async (values) => {
     const { productName, category } = values;
     const formdata = new FormData();
 
+    const updatedColorArray = color.map(c => c.replace('#', ''));
     if (productName) formdata.append("productName", productName);
     if (category) formdata.append("category", category);
-
-    // Ensure images are appended only once
-    selectedFiles.forEach((file) => {
-      formdata.append("productImage1", file);
-    });
-
+    if (selectedFile) formdata.append("productImage1", selectedFile);
     if (selectedSizes.length)
       formdata.append("variants", JSON.stringify(selectedSizes)); // Append variants as a JSON string
-    if (selectedColors.length)
-      formdata.append("color", JSON.stringify(selectedColors)); // Append color as a JSON string
+    if (updatedColorArray.length) formdata.append("color", JSON.stringify(updatedColorArray)); // Append color as a JSON string
     if (boutiqueId) formdata.append("boutiqueId", boutiqueId);
 
     try {
@@ -58,17 +53,14 @@ const AddBoutiqueProduct = () => {
       message.error("Failed to add product.");
     }
   };
-
-  // Handle file selection and preview generation for multiple images
+  // Handle file selection and preview generation
   const handleFileChange = (event) => {
-    const files = Array.from(event.target.files); // Convert FileList to Array
-    setSelectedFiles([...selectedFiles, ...files]); // Append new files to the existing array
-
-    // Generate image previews for new files
-    const newPreviews = files.map((file) => URL.createObjectURL(file));
-    setPreviews([...previews, ...newPreviews]);
-
-    setImageError(false); // Reset error state
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedFile(file); // Set selected file
+      setPreview(URL.createObjectURL(file)); // Generate a preview
+      setImageError(false); // Reset error state
+    }
   };
 
   // Trigger file input on div click
@@ -76,10 +68,10 @@ const AddBoutiqueProduct = () => {
     document.getElementById("imageUpload").click();
   };
 
-  // Add the currently selected color to the list of selected colors
-  const handleColorAdd = () => {
-    setSelectedColors([...selectedColors, color]); // Add the single color to the array
-    setColorPickerVisible(false); // Close the color picker modal
+  // Add new color to the list
+  const handleColorAdd = (newColor) => {
+    setColor([...color, newColor.hex]); // Add selected color to the array
+    setColorPickerVisible(false); // Close color picker
   };
 
   // Add size to the size list
@@ -91,8 +83,8 @@ const AddBoutiqueProduct = () => {
 
   // Remove a color
   const removeColor = (index) => {
-    const updatedColors = selectedColors.filter((_, i) => i !== index);
-    setSelectedColors(updatedColors);
+    const updatedColors = color.filter((_, i) => i !== index);
+    setColor(updatedColors);
   };
 
   // Remove a size
@@ -101,15 +93,7 @@ const AddBoutiqueProduct = () => {
     setSelectedSizes(updatedSizes);
   };
 
-  // Remove image preview
-  const removeImage = (index) => {
-    const updatedFiles = selectedFiles.filter((_, i) => i !== index);
-    setSelectedFiles(updatedFiles);
-
-    const updatedPreviews = previews.filter((_, i) => i !== index);
-    setPreviews(updatedPreviews);
-  };
-
+  console.log(color)
   return (
     <div className="ml-[24px] overflow-auto">
       <div className="mt-5 cursor-pointer flex items-center pb-3 gap-2">
@@ -123,41 +107,39 @@ const AddBoutiqueProduct = () => {
           labelCol={{ span: 22 }}
           wrapperCol={{ span: 40 }}
           layout="vertical"
-          onFinish={handleUploadProduct}
+          onFinish={handleUploadScore}
           autoComplete="off"
         >
           {/* Image Upload Section */}
-          <div className="flex flex-wrap gap-2 mb-2">
-            {previews.map((preview, index) => (
-              <div
-                key={index}
-                className="relative w-32 h-32 border rounded-lg overflow-hidden cursor-pointer"
-              >
-                <img
-                  src={preview}
-                  alt={`Selected ${index + 1}`}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute top-0 right-0 bg-black bg-opacity-50 p-1 rounded-full">
-                  <FiX
-                    className="text-white cursor-pointer"
-                    onClick={() => removeImage(index)}
-                  />
-                </div>
+          <div
+            className={`relative w-60 h-40 rounded-xl border mb-2 flex justify-center items-center bg-[#e8ebf0] cursor-pointer ${
+              imageError ? "border-red-500" : ""
+            }`}
+            onClick={handleDivClick}
+          >
+            {preview ? (
+              <img
+                src={preview}
+                alt="Selected"
+                className="w-full h-full object-cover rounded-xl"
+              />
+            ) : (
+              <div className="bg-[#c6dadc] p-2 text-white">
+                <FaCamera size={30} />
               </div>
-            ))}
+            )}
 
-            <div
-              className="w-32 h-32 flex justify-center items-center bg-[#e8ebf0] cursor-pointer border rounded-lg"
-              onClick={handleDivClick}
-            >
-              <FaCamera size={30} />
-            </div>
+            {preview && (
+              <div className="absolute inset-0 flex flex-col justify-center items-center bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity duration-300 rounded-xl">
+                <FaCamera size={30} className="text-white mb-2" />
+                <p className="text-white text-sm">Click to change image</p>
+              </div>
+            )}
           </div>
 
           {imageError && (
             <span className="text-red-500 text-sm">
-              Please upload at least one product image.
+              Please upload a product image.
             </span>
           )}
 
@@ -166,7 +148,6 @@ const AddBoutiqueProduct = () => {
             type="file"
             style={{ display: "none" }}
             onChange={handleFileChange}
-            multiple // Enable multiple image upload
           />
 
           {/* Product Name Input */}
@@ -209,7 +190,7 @@ const AddBoutiqueProduct = () => {
             </div>
             <div className="flex items-center gap-5">
               <div className="flex gap-3">
-                {selectedColors.map((col, index) => (
+                {color.map((col, index) => (
                   <div key={index} className="relative">
                     <div
                       style={{ backgroundColor: col }}
@@ -269,7 +250,6 @@ const AddBoutiqueProduct = () => {
 
           {/* Submit Button */}
           <Button
-            loading={isLoading}
             htmlType="submit"
             block
             className="block w-[500px] h-[56px] mt-[30px] px-2 py-4 text-white bg-[#1E66CA]"
@@ -283,16 +263,12 @@ const AddBoutiqueProduct = () => {
       <Modal
         title="Select Color"
         open={colorPickerVisible}
-        onOk={handleColorAdd}
+        onOk={() => setColorPickerVisible(false)}
         onCancel={() => setColorPickerVisible(false)}
         footer={null}
         centered
-        className="flex justify-center items-center"
       >
-        {/* Wrapper div with the desired width and height */}
-        <div style={{ width: "100%", height: "400px" }}>
-          <HexColorPicker color={color} onChange={setColor} />
-        </div>
+        <SketchPicker color={color} onChangeComplete={handleColorAdd} />
       </Modal>
 
       {/* Size Modal */}
@@ -335,14 +311,12 @@ const AddBoutiqueProduct = () => {
               }
             />
           </Form.Item>
-          <Button
-            type="primary"
-            block
+          <button
             onClick={handleSizeAdd}
-            className="w-full h-12 rounded-xl bg-blue-500 text-white"
+            className="w-full py-3 rounded-xl bg-blue-500 text-white"
           >
             Add Size
-          </Button>
+          </button>
         </Form>
       </Modal>
     </div>
